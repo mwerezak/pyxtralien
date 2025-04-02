@@ -8,7 +8,7 @@ def prompt(vars=None, message=""):
         ipshell = IPShellEmbed(
             argv=[''],
             banner=prompt_message,
-            exit_msg="Exiting..."
+            exit_msg="Exiting...",
         )
         return ipshell()
     except ImportError:

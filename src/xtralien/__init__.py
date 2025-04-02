@@ -19,31 +19,31 @@ from xtralien.serial_utils import serial_ports
 log_levels = {
     'debug': logging.DEBUG,
     'info': logging.INFO,
-    'warn': logging.WARNING,
+    'warning': logging.WARNING,
     'error': logging.ERROR
 }
 
 logging.basicConfig()
 logger = logging.getLogger('Xtralien')
 logger.setLevel(
-    log_levels.get(os.getenv('LOG', 'warn').lower(), logging.WARNING)
+    log_levels.get(os.getenv('LOG', 'warning').lower(), logging.WARNING)
 )
 
 try:
     import numpy
 except ImportError:
-    logger.warn("Numpy not found, array and matrix will fail")
+    logger.warning("Numpy not found, array and matrix will fail")
 
 
 if sys.version_info.major < 3:
-    logger.warn("Module not supported on Python 2.x")
+    logger.warning("Module not supported on Python 2.x")
 
 # Try and import the serial module (supports USB-serial communication)
 try:
     import serial
 except ImportError:
     serial = None
-    logger.warn("The serial module was not found, USB not supported")
+    logger.warning("The serial module was not found, USB not supported")
 
 
 def process_strip(x):
@@ -107,7 +107,13 @@ class Device(object):
         'auto': process_auto
     }
 
-    def __init__(self, addr=None, port=None, serial_timeout=0.1):
+    def __init__(
+        self,
+        addr: str = None,
+        port: int = None,
+        serial_timeout: float = 1,
+        write_timeout: float = 1,
+    ) -> None:
         self.connections = []
         self.current_selection = []
         self.in_progress = False
@@ -115,7 +121,11 @@ class Device(object):
         if port:
             self.add_connection(SocketConnection(addr, port))
         elif addr:
-            self.add_connection(SerialConnection(addr, timeout=serial_timeout))
+            self.add_connection(SerialConnection(
+                addr,
+                timeout=serial_timeout,
+                write_timeout=write_timeout,
+            ))
 
     def __enter__(self):
         return self
@@ -163,26 +173,26 @@ class Device(object):
 
     @property
     def serial(self):
-        _serial = int('0x' + self("serial", format=None), 16)
+        _serial = int('0x' + self('serial', format=None), 16)
         return {
             # 16 bits
-            "board_number": (_serial & 0x00000000FFFF),
+            'board_number': (_serial & 0x00000000FFFF),
             # 6 bits
-            "week": (_serial & 0x0000003F0000) >> 16,
+            'week': (_serial & 0x0000003F0000) >> 16,
             # 8 bits
-            "year": (_serial & 0x00003FC00000) >> 22,
+            'year': (_serial & 0x00003FC00000) >> 22,
             # 8 bits
-            "model": (_serial & 0x003FC0000000) >> 30,
+            'model': (_serial & 0x003FC0000000) >> 30,
             # 10 bits
-            "product": (_serial & 0xFFC000000000) >> 38
+            'product': (_serial & 0xFFC000000000) >> 38
         }
 
     @serial.setter
     def serial(self, serial_dict):
         # Set defaults
         dt = datetime.datetime.now()
-        week = serial_dict.get("week", int(dt.strftime("%W")))
-        year = serial_dict.get("year", dt.year - 2000)
+        week = serial_dict.get('week', int(dt.strftime('%W')))
+        year = serial_dict.get('year', dt.year - 2000)
         model = serial_dict.get('model', 0)
         product = serial_dict.get('product', 0)
         board = serial_dict.get('board_number', 0)
@@ -213,7 +223,7 @@ class Device(object):
         return self
 
     def __call__(self, *args, **kwargs):
-        sleep_time = kwargs.get("sleep_time", 0.001)
+        sleep_time = kwargs.get('sleep_time', 0.001)
         self.current_selection += args
         returns = kwargs.get('response', True) or kwargs.get('callback', False)
         command = ' '.join([str(x) for x in self.current_selection])
@@ -253,11 +263,11 @@ class Device(object):
 
     def __repr__(self):
         if len(self.connections):
-            return "<Device connection={connection}/>".format(
+            return '<Device connection={connection}/>'.format(
                 connection=self.connections[0]
             )
         else:
-            return "<Device connection=None/>"
+            return '<Device connection=None/>'
 
     @staticmethod
     def discover(broadcast_address=None, timeout=0.1, *args, **kwargs):
@@ -417,27 +427,25 @@ class SocketConnection(Connection):
 
 
 class SerialConnection(Connection):
-    def __init__(self, port, timeout=0.1):
+    def __init__(
+        self,
+        port: str,
+        timeout: float = 0.1,
+        write_timeout: float = 0.1
+    ) -> None:
         super(SerialConnection, self).__init__()
         self.port = port
-        self.connection = serial.Serial(port, timeout=timeout)
+        self.connection = serial.Serial(
+            port,
+            timeout=timeout,
+            write_timeout=write_timeout,
+        )
 
     def read(self, wait=True):
-        retval = ""
-
-        while wait and (self.connection.inWaiting() == 0):
-            continue
-
-        while self.connection.inWaiting() > 0:
-            try:
-                retval = retval + str(
-                    self.connection.read(
-                        self.connection.inWaiting()
-                    ),
-                    'utf-8'
-                )
-            except Exception:
-                break
+        if wait:
+            retval = str(self.connection.readline(), 'utf-8')
+        else:
+            retval = ''
 
         return retval
 
@@ -452,7 +460,7 @@ class SerialConnection(Connection):
         self.connection.close()
 
     def __repr__(self):
-        return "<Serial/USB {connection} />".format(connection=self.port)
+        return '<Serial/USB {connection} />'.format(connection=self.port)
 
 
 X100 = Device

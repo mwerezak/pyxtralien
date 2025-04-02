@@ -8,7 +8,7 @@ except:
 
 setup(
     name='xtralien',
-    version='2.10.0',
+    version='2.11.1',
     description='A library for controlling Ossila\'s Source Measure Unit',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -19,6 +19,7 @@ setup(
     package_dir={'': 'src'},
     python_requires='>=3.5',
     extras_require={
+        'numpy': ['numpy'],
         'Serial': ['pyserial'],
         'keithley': ['pyVISA'],
         'prompt': ['pyreadline']
