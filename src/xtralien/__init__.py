@@ -13,6 +13,7 @@ import socket
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 log_levels = {
     'debug': logging.DEBUG,
@@ -114,6 +115,7 @@ class Device(object):
     ) -> None:
         self.connections = []
         self._in_progress_lock = threading.Lock()
+        self._thread_pool = ThreadPoolExecutor(thread_name_prefix=f"xtralien")
 
         if port:
             self.add_connection(SocketConnection(addr, port))
@@ -166,6 +168,7 @@ class Device(object):
         )
 
     def close(self):
+        self._thread_pool.shutdown(wait=False, cancel_futures=True)
         for conn in self.connections:
             conn.close()
 
@@ -224,10 +227,11 @@ class Device(object):
 
     def __call__(
             self, *args,
-            sleep_time = 0.001,
             format = 'auto',
             response = True,
             callback = None,
+            spawn_thread = None,  # implicitly True if callback is not None
+            sleep_time = 0.001,
     ):
         returns = bool(response or callback)
         command = ' '.join(str(x) for x in args)
@@ -237,18 +241,20 @@ class Device(object):
         else:
             formatter = self._default_formatter
 
-        if callback is not None:
-            def async_function():
-                with self._in_progress_lock:
-                    data = formatter(self.command(command, returns=True))
-                callback(data)
-            threading.Thread(target=async_function).start()
-            return None
+        if spawn_thread or callback:
+            future = self._thread_pool.submit(self._async_call, command, formatter)
+            if callback is not None:
+                future.add_done_callback(lambda fut: callback(fut.result()))
+            return future
 
         with self._in_progress_lock:
             return formatter(
                 self.command(command, returns=returns, sleep_time=sleep_time)
             )
+
+    def _async_call(self, command, formatter):
+        with self._in_progress_lock:
+            return formatter(self.command(command, returns=True))
 
     def __repr__(self):
         if len(self.connections):
