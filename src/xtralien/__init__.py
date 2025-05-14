@@ -96,8 +96,6 @@ def process_auto(x=None):
 
 
 class Device(object):
-    connections = []
-    current_selection = []
     formatters = {
         'strip': process_strip,
         'array': process_array,
@@ -115,7 +113,6 @@ class Device(object):
         write_timeout: float = 1,
     ) -> None:
         self.connections = []
-        self.current_selection = []
         self._in_progress_lock = threading.Lock()
 
         if port:
@@ -216,12 +213,10 @@ class Device(object):
         if '__' in x or x in object.__dir__(self):
             return object.__getattribute__(self, x)
         else:
-            self.current_selection.append(x)
-            return self
+            return CommandBuilder(self, [x])
 
     def __getitem__(self, x):
-        self.current_selection.append(x)
-        return self
+        return CommandBuilder(self, [x])
 
     @staticmethod
     def _default_formatter(x):
@@ -234,10 +229,8 @@ class Device(object):
             response = True,
             callback = None,
     ):
-        self.current_selection += args
         returns = bool(response or callback)
-        command = ' '.join([str(x) for x in self.current_selection])
-        self.current_selection = []
+        command = ' '.join(str(x) for x in args)
 
         if returns:
             formatter = self.formatters.get(format, self._default_formatter)
@@ -292,9 +285,6 @@ class Device(object):
             udp_socket.close()
         return devices
 
-    def dup(self):
-        return DeviceDuplicate(self)
-
     @staticmethod
     def USB(com=None, *args, **kwargs):
         if com is None:
@@ -338,33 +328,27 @@ class Device(object):
                 continue
 
 
-class DeviceDuplicate(object):
-    def __init__(self, device):
+class CommandBuilder:
+    def __init__(self, device, command = None):
         self.device = device
-        self.command_base = self.device.current_selection
-        self.device.current_selection = []
-        self.current_selection = []
+        self.command = command or []
 
-    def __getattribute__(self, x):
-        if '__' in x or x in object.__dir__(self):
-            return object.__getattribute__(self, x)
+    def __getattribute__(self, name):
+        if '__' in name or name in object.__dir__(self):
+            return object.__getattribute__(self, name)
         else:
-            self.current_selection.append(x)
+            self.command.append(name)
             return self
 
-    def __getitem__(self, x):
-        self.current_selection.append(x)
+    def __getitem__(self, value):
+        self.command.append(value)
         return self
 
     def __call__(self, *args, **kwargs):
-        self.device.current_selection = []
-        response = self.device(
-            ' '.join(self.command_base + self.current_selection),
-            *args,
-            **kwargs
-        )
-        self.current_selection = []
-        return response
+        return self.device(*self.command, *args, **kwargs)
+
+    def dup(self):
+        return CommandBuilder(self.device, list(self.command))
 
 
 class Connection(object):
