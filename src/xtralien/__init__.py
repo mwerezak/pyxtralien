@@ -22,7 +22,6 @@ log_levels = {
     'error': logging.ERROR
 }
 
-logging.basicConfig()
 logger = logging.getLogger('Xtralien')
 logger.setLevel(
     log_levels.get(os.getenv('LOG', 'warning').lower(), logging.WARNING)
