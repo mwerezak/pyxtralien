@@ -8,7 +8,7 @@ except:
 
 setup(
     name='xtralien-cmat',
-    version='2.11.1',
+    version='2.11.2+cmat',
     description='A library for controlling Ossila\'s Source Measure Unit',
     long_description=long_description,
     long_description_content_type='text/markdown',
