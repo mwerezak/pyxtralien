@@ -219,29 +219,28 @@ class Device(object):
         self.current_selection.append(x)
         return self
 
-    def __call__(self, *args, **kwargs):
-        sleep_time = kwargs.get('sleep_time', 0.001)
+    @staticmethod
+    def _default_formatter(x):
+        return x
+
+    def __call__(
+            self, *args,
+            sleep_time = 0.001,
+            format = 'auto',
+            response = True,
+            callback = None,
+    ):
         self.current_selection += args
-        returns = kwargs.get('response', True) or kwargs.get('callback', False)
+        returns = bool(response or callback)
         command = ' '.join([str(x) for x in self.current_selection])
         self.current_selection = []
 
-        def formatter(x):
-            return x
-
         if returns:
-            try:
-                formatter = self.formatters.get(
-                    kwargs.get('format', 'auto'),
-                    formatter
-                )
-            except KeyError:
-                if kwargs.get('format', None):
-                    logger.warning('Formatter not found')
+            formatter = self.formatters.get(format, self._default_formatter)
+        else:
+            formatter = self._default_formatter
 
-        callback = kwargs.get('callback', None)
-
-        if callback:
+        if callback is not None:
             def async_function():
                 while self.in_progress:
                     continue
