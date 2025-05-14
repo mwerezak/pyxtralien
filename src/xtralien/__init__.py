@@ -116,7 +116,7 @@ class Device(object):
     ) -> None:
         self.connections = []
         self.current_selection = []
-        self.in_progress = False
+        self._in_progress_lock = threading.Lock()
 
         if port:
             self.add_connection(SocketConnection(addr, port))
@@ -139,27 +139,28 @@ class Device(object):
     def connection(self):
         return self.connections[0]
 
+    @property
+    def in_progress(self) -> bool:
+        return self._in_progress_lock.locked()
+
     def add_connection(self, connection):
         self.connections.append(connection)
 
     def command(self, command, returns=False, sleep_time=0.001):
         if sleep_time is not None:
             time.sleep(sleep_time)
-        if self.connections == []:
-            logger.error(
-                "Can't send command '{cmd}'\
-                because there are no open connections'".format(
-                    cmd=command
-                )
-            )
-        for conn in self.connections:
-            if True:  # try:
+
+        conn = None
+        try:
+            for conn in self.connections:
                 conn.write(command)
                 return conn.read(returns)
-            else:  # except (Exception, e):
-                # print(e)
+        except ConnectionError:
+            if conn is not None:
                 conn.close()
-                continue
+                self.connections.remove(conn)
+            raise
+
         logger.error(
             "Can't send command '{cmd}'\
             because there are no open connections".format(
@@ -222,44 +223,39 @@ class Device(object):
         self.current_selection.append(x)
         return self
 
-    def __call__(self, *args, **kwargs):
-        sleep_time = kwargs.get('sleep_time', 0.001)
+    @staticmethod
+    def _default_formatter(x):
+        return x
+
+    def __call__(
+            self, *args,
+            sleep_time = 0.001,
+            format = 'auto',
+            response = True,
+            callback = None,
+    ):
         self.current_selection += args
-        returns = kwargs.get('response', True) or kwargs.get('callback', False)
+        returns = bool(response or callback)
         command = ' '.join([str(x) for x in self.current_selection])
         self.current_selection = []
 
-        def formatter(x):
-            return x
-
         if returns:
-            try:
-                formatter = self.formatters.get(
-                    kwargs.get('format', 'auto'),
-                    formatter
-                )
-            except KeyError:
-                if kwargs.get('format', None):
-                    logger.warning('Formatter not found')
+            formatter = self.formatters.get(format, self._default_formatter)
+        else:
+            formatter = self._default_formatter
 
-        callback = kwargs.get('callback', None)
-
-        if callback:
+        if callback is not None:
             def async_function():
-                while self.in_progress:
-                    continue
-                self.in_progress = True
-                data = formatter(self.command(command, returns=True))
-                self.in_progress = False
+                with self._in_progress_lock:
+                    data = formatter(self.command(command, returns=True))
                 callback(data)
-            return threading.Thread(target=async_function).start()
+            threading.Thread(target=async_function).start()
+            return None
 
-        self.in_progress = True
-        data = formatter(
-            self.command(command, returns=returns, sleep_time=sleep_time)
-        )
-        self.in_progress = False
-        return data
+        with self._in_progress_lock:
+            return formatter(
+                self.command(command, returns=returns, sleep_time=sleep_time)
+            )
 
     def __repr__(self):
         if len(self.connections):
