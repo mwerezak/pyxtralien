@@ -145,21 +145,18 @@ class Device(object):
     def command(self, command, returns=False, sleep_time=0.001):
         if sleep_time is not None:
             time.sleep(sleep_time)
-        if self.connections == []:
-            logger.error(
-                "Can't send command '{cmd}'\
-                because there are no open connections'".format(
-                    cmd=command
-                )
-            )
-        for conn in self.connections:
-            if True:  # try:
+
+        conn = None
+        try:
+            for conn in self.connections:
                 conn.write(command)
                 return conn.read(returns)
-            else:  # except (Exception, e):
-                # print(e)
+        except ConnectionError:
+            if conn is not None:
                 conn.close()
-                continue
+                self.connections.remove(conn)
+            raise
+
         logger.error(
             "Can't send command '{cmd}'\
             because there are no open connections".format(
