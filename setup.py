@@ -7,7 +7,7 @@ except:
     long_description = ''
 
 setup(
-    name='xtralien',
+    name='xtralien-cmat',
     version='2.11.1',
     description='A library for controlling Ossila\'s Source Measure Unit',
     long_description=long_description,
