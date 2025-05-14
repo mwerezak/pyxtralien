@@ -116,7 +116,7 @@ class Device(object):
     ) -> None:
         self.connections = []
         self.current_selection = []
-        self.in_progress = False
+        self._in_progress_lock = threading.Lock()
 
         if port:
             self.add_connection(SocketConnection(addr, port))
@@ -138,6 +138,10 @@ class Device(object):
     @property
     def connection(self):
         return self.connections[0]
+
+    @property
+    def in_progress(self) -> bool:
+        return self._in_progress_lock.locked()
 
     def add_connection(self, connection):
         self.connections.append(connection)
@@ -242,20 +246,16 @@ class Device(object):
 
         if callback is not None:
             def async_function():
-                while self.in_progress:
-                    continue
-                self.in_progress = True
-                data = formatter(self.command(command, returns=True))
-                self.in_progress = False
+                with self._in_progress_lock:
+                    data = formatter(self.command(command, returns=True))
                 callback(data)
-            return threading.Thread(target=async_function).start()
+            threading.Thread(target=async_function).start()
+            return None
 
-        self.in_progress = True
-        data = formatter(
-            self.command(command, returns=returns, sleep_time=sleep_time)
-        )
-        self.in_progress = False
-        return data
+        with self._in_progress_lock:
+            return formatter(
+                self.command(command, returns=returns, sleep_time=sleep_time)
+            )
 
     def __repr__(self):
         if len(self.connections):
