@@ -394,11 +394,13 @@ class SocketConnection(Connection):
             except socket.timeout:
                 break
 
+        logger.debug(f"Read: {retval!r}")
         return retval
 
     def write(self, cmd):
         if type(cmd) == str:
             cmd = bytes(cmd, 'utf-8')
+        logger.debug(f"Write: {cmd!r}")
         self.socket.send(cmd)
 
     def close(self):
@@ -432,11 +434,13 @@ class SerialConnection(Connection):
         else:
             retval = ''
 
+        logger.debug(f"Read: {retval!r}")
         return retval
 
     def write(self, cmd):
         if type(cmd) == str:
             cmd = bytes(cmd, 'utf-8')
+        logger.debug(f"Write: {cmd!r}")
         self.connection.write(cmd)
         while self.connection.out_waiting > 0:
             continue
