@@ -22,7 +22,7 @@ log_levels = {
     'error': logging.ERROR
 }
 
-logger = logging.getLogger('Xtralien')
+logger = logging.getLogger('xtralien')
 logger.setLevel(
     log_levels.get(os.getenv('LOG', 'warning').lower(), logging.WARNING)
 )
@@ -394,7 +394,8 @@ class SocketConnection(Connection):
             except socket.timeout:
                 break
 
-        logger.debug(f"Read: {retval!r}")
+        if retval:
+            logger.debug(f"Read: {retval!r}")
         return retval
 
     def write(self, cmd):
@@ -434,7 +435,8 @@ class SerialConnection(Connection):
         else:
             retval = ''
 
-        logger.debug(f"Read: {retval!r}")
+        if retval:
+            logger.debug(f"Read: {retval!r}")
         return retval
 
     def write(self, cmd):
