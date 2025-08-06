@@ -8,7 +8,7 @@ except:
 
 setup(
     name='xtralien-cmat',
-    version='2.12',
+    version='2.12.1',
     description='A library for controlling Ossila\'s Source Measure Unit',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -18,6 +18,9 @@ setup(
     packages=find_packages(where='src', exclude=['additional']),
     package_dir={'': 'src'},
     python_requires='>=3.5',
+    install_requires=[
+
+    ],
     extras_require={
         'numpy': ['numpy'],
         'Serial': ['pyserial'],
